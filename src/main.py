@@ -17,7 +17,7 @@ def load_config(config_file):
 
 def save_config(config_dict, config_file):
 	with open(config_file, 'w') as fp:
-		json.dump(config_dict, fp)
+		json.dump(config_dict, fp, indent=4, sort_keys=True)
 
 def initialize_reddit_api():
 	reddit_client_id = os.environ['REDDIT_CLIENT_ID']
