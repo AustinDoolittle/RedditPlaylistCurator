@@ -1,7 +1,7 @@
-[
-	{
-		"subreddit": "music",
-		"top_n": 25,
-		"expire_days": 7	
+{
+	"some_playlist_id": {
+		"expire_days": 7, 
+		"top_n": 25, 
+		"subreddits": ["music"]
 	}
-]
+}

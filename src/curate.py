@@ -3,7 +3,6 @@ import util
 import pytz
 from datetime import datetime
 import dateutil.parser
-from pprint import pprint
 
 def sanitize_song_name(post_title):
 	return re.sub(r'(\[.*\]|\(\w+\d+\w+\)+|-)', '', post_title)
@@ -20,21 +19,6 @@ class PlaylistCurator(object):
 		self.spotify = spotify
 		self.spotify_username = spotify_username
 
-	def infer_or_create_playlist_id(self, subreddit_name):
-		# construct our playlist name
-		expected_playlist_name = util.create_playlist_name(subreddit_name)
-
-		# iterate over playlists owned by our spotify user
-		for playlist in self.spotify.user_playlists(self.spotify_username)['items']:
-			if playlist['name'] == expected_playlist_name:
-				return playlist['id']
-
-		# create the playlist
-		new_playlist = spotify.user_playlist_create(self.spotify_username, 
-			expected_playlist_name,
-			public=True)
-		return new_playlist['id']
-
 	def _trim_expired_from_playlist(self, playlist_id, expire_days):
 		playlist = self.spotify.user_playlist(self.spotify_username, playlist_id, fields='tracks,next')
 		playlist_tracks = playlist['tracks']
@@ -50,7 +34,7 @@ class PlaylistCurator(object):
 			if playlist_tracks['next'] is None:
 				break
 
-			playlist_tracks = sp.next(playlist_tracks['next'])
+			playlist_tracks = self.spotify.next(playlist_tracks['next'])
 		
 		if remove_tracks:
 			self.spotify.user_playlist_remoe_all_occurrences_of_tracks(self.spotify_username, playlist_id, remove_tracks)
@@ -81,10 +65,6 @@ class PlaylistCurator(object):
 
 
 	def curate_playlist(self, subreddit, playlist_id=None, top_n=25, expire_days=7, time_filter='day'):
-
-		if playlist_id is None:
-			playlist_id = self.infer_or_create_playlist_id(subreddit)
-
 		#clear out songs that are currently in the playlist that have been there longer than *expire_days*
 		self._trim_expired_from_playlist(playlist_id, expire_days)
 
