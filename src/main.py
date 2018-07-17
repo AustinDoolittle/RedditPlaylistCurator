@@ -1,10 +1,6 @@
 import sys
-import json
 import os
 import argparse
-import praw
-import spotipy
-import spotipy.util as sp_util
 
 import util
 from curate import PlaylistCurator
