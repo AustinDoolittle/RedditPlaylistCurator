@@ -9,173 +9,111 @@ import spotipy.util as sp_util
 import util
 from curate import PlaylistCurator
 
-REDDIT_USER_AGENT='reddit_playlist_curator v1.0.0'
+def load_api_auth_info():
+	return {
+		'reddit_client_id': os.environ['REDDIT_CLIENT_ID'],
+		'reddit_client_secret': os.environ['REDDIT_CLIENT_SECRET'],
+		'reddit_user_agent': os.environ['REDDIT_USER_AGENT'],
+		'spotify_username': os.environ['SPOTIFY_USERNAME'],
+		'spotify_client_id': os.environ['SPOTIFY_CLIENT_ID'],
+		'spotify_client_secret': os.environ['SPOTIFY_CLIENT_SECRET']
+	}
 
-def load_config(config_file):
-	with open(config_file, 'r') as fp:
-		return json.load(fp)
+def add_handler(args):
+	# load our auth information	
+	try:
+		api_auth = load_api_auth_info()
+	except KeyError as e:
+		util.print_error('API authorization environment variables have not been setup correctly', e)
+		return 1
 
-def save_config(config_dict, config_file):
-	with open(config_file, 'w') as fp:
-		json.dump(config_dict, fp, indent=4, sort_keys=True)
-
-def initialize_reddit_api():
-	reddit_client_id = os.environ['REDDIT_CLIENT_ID']
-	reddit_client_secret = os.environ['REDDIT_CLIENT_SECRET']
-	reddit = praw.Reddit(client_id=reddit_client_id,
-		client_secret=reddit_client_secret,
-		user_agent=REDDIT_USER_AGENT)
-	return reddit
-
-def initialize_spotify_api():
-	spotify_username = os.environ['SPOTIFY_USERNAME']
-	spotify_client_id = os.environ['SPOTIFY_CLIENT_ID']
-	spotify_client_secret = os.environ['SPOTIFY_CLIENT_SECRET']
-
-	# this scope allows us to create and modify public playlists
-	scope='playlist-modify-public'
-	token = sp_util.prompt_for_user_token(spotify_username, 
-		scope,
-		client_id=spotify_client_id,
-		client_secret=spotify_client_secret,
-		redirect_uri='https://www.google.com')
-
-	# check that we were successful
-	if not token:
-		raise util.TokenException('There was an error retrieving the spotify token')
-
-	spotify = spotipy.Spotify(auth=token)
-	return spotify, spotify_username
-
-def add_handler(args):	
+	# either load or create, based on config file's existence
 	if os.path.isfile(args.config_file):
 		try:
-			config_dict = load_config(args.config_file)
+			curator = PlaylistCurator.load(args.config_file, **api_auth)
 		except IOError as e:
 			util.print_error('There was an error while loading config file %s'%args.config_file, e)
 			return 1
 	else:
-		config_dict = {}
+		curator = PlaylistCurator(**api_auth)
 
-	if args.playlist_id:
-		if args.playlist_id in config_dict:
-			util.print_error('Playlist id %s already exists in config file %s, cannot add duplicate playlist id'%(args.playlist_id, args.config_file))
-			return 1
-		playlist_id = args.playlist_id
-	else:
-		try:
-			spotify, spotify_username = initialize_spotify_api()
-		except util.TokenException as ex:
-			util.print_error('Spotify token retrieval failed', ex)
-			return 1
-		except Exception as ex:
-			util.print_error('There was an error initializing the spotify api wrapper', ex)
-			return 1
+	# add the new configuration
+	curator.add(playlist_id=args.playlist_id, playlist_name=args.playlist_name, top_n = args.top_n,
+		expire_days=args.expire_days, subreddits=args.subreddits)
 
-		new_playlist = spotify.user_playlist_create(spotify_username, 
-			args.playlist_name,
-			public=True)
-		playlist_id = new_playlist['id']
 
-	config_dict[playlist_id] = {
-		'top_n': args.top_n,
-		'expire_days': args.expire_days,
-		'subreddits': args.subreddits
-	}
-
+	# save the changes we just made
 	try:
-		save_config(config_dict, args.config_file)
+		curator.save(args.config_file)
 	except IOError as e:
-		util.print_error('There was an error while saving the updated config file to %s'%args.config_file, e)
+		util.print_error('There was an error while saving the updated curator configuration to %s'%args.config_file, e)
 		return 1
 
+	return 0
+
 def list_handler(args):
+	# load our auth information	
 	try:
-		config_dict = load_config(args.config_file)
+		api_auth = load_api_auth_info()
+	except KeyError as e:
+		util.print_error('API authorization environment variables have not been setup correctly', e)
+		return 1
+
+	try:
+		curator = PlaylistCurator.load(args.config_file, **api_auth)
 	except IOError as e:
 		util.print_error('There was an error while loading config file %s'%args.config_file, e)
 		return 1
 
 	# TODO pull information from spotify and reddit for all of the listed subreddits
-	for playlist_id, playlist_settings in config_dict.items():
-		print 'Playlist ID: %s'%playlist_id
-		print '\tTop N: %i posts'%playlist_settings['top_n']
-		print '\tExpire Days: %i days'%playlist_settings['expire_days']
-		print '\tSubreddit(s): %s'%(', '.join(playlist_settings['subreddits']))
-		print
+	print(str(curator))
 
 	return 0
 
 def update_handler(args):
+	# load our auth information	
+	try:
+		api_auth = load_api_auth_info()
+	except KeyError as e:
+		util.print_error('API authorization environment variables have not been setup correctly', e)
+		return 1
+
 	# load our config file
 	try:
-		config = load_config(args.config_file)
-	except Exception as ex:
-		util.print_error('There was an error while reading the config file', ex)
-		return 1
-
-	# pop our dictionary
-	c = config.pop(args.playlist_id, None)
-
-	# check that we actually are using this playlist id
-	if c is None:
-		util.print_error('Config file %s does not contain configuration details for playlist id %s'%(args.config_file, args.playlist_id))
-		return 1
-
-	# create our update dictionary based on what parameters were provided
-	if not args.top_n is None:
-		c['top_n'] = args.top_n
-
-	if args.subreddits:
-		c['subreddits'] = args.subreddits
-
-	if args.expire_days:
-		c['expire_days'] = args.expire_days
-
-
-	playlist_id = args.new_playlist_id or args.playlist_id
-
-	config[playlist_id] = c
-
-	try:
-		save_config(config, args.config_file)
+		curator = PlaylistCurator.load(args.config_file, **api_auth)
 	except IOError as e:
-		util.print_error('There was an error while saving the updated config file to %s'%args.config_file, e)
+		util.print_error('There was an error while loading config file %s'%args.config_file, e)
+		return 1
+
+	curator.update(args.playlist_id, top_n=args.top_n, subreddits=args.subreddits, expire_days=args.expire_days)
+
+	# save the changes we just made
+	try:
+		curator.save(args.config_file)
+	except IOError as e:
+		util.print_error('There was an error while saving the updated curator configuration to %s'%args.config_file, e)
 		return 1
 
 	return 0
 
 
 def curate_handler(args):
-	# load our config file
+	# load our auth information	
 	try:
-		config = load_config(args.config_file)
-	except Exception as ex:
-		util.print_error('There was an error while reading the config file', ex)
+		api_auth = load_api_auth_info()
+	except KeyError as e:
+		util.print_error('API authorization environment variables have not been setup correctly', e)
 		return 1
 
-	# create our reddit object
+	# load our config file
 	try:
-		reddit = initialize_reddit_api()
-	except Exception as e:
-		# TODO more specific exception handling
-		util.print_error('There was an error initializing the reddit api wrapper', e)
+		curator = PlaylistCurator.load(args.config_file, **api_auth)
+	except IOError as e:
+		util.print_error('There was an error while loading config file %s'%args.config_file, e)
 		return 1
 
 	# create our spotify object
-	try:
-		spotify, spotify_username = initialize_spotify_api()
-	except util.TokenException as ex:
-		util.print_error('Spotify token retrieval failed', ex)
-		return 1
-	except Exception as ex:
-		util.print_error('There was an error initializing the spotify api wrapper', ex)
-		return 1
-
-	# curate!
-	playlist_curator = PlaylistCurator(reddit, spotify, spotify_username)
-	for playlist_id, kwargs in config.items():
-		playlist_curator.curate_playlist(playlist_id=playlist_id, **kwargs)
+	curator.curate()
 
 	return 0
 
@@ -223,9 +161,6 @@ def parse_args(argv):
 		help='The number of days to retain added songs. Providing this value will overwrite the current value.')
 	update_subparser.add_argument('--subreddits', type=str, nargs='+',
 		help='The subreddit to pull posts from. Providing this value will overwrite the current value.')
-	update_subparser.add_argument('--new-playlist-id', type=str,
-		help='The playlist id is overwritten to this value. If this playlist id already exists \
-		in this configuration, an exception is raised.')
 	update_subparser.set_defaults(func=update_handler)
 
 	curate_subparser = subparsers.add_parser('curate', help='Runs a curation cycle, removing expired tracks and adding \
