@@ -47,7 +47,21 @@ def add_handler(args):
 	raise NotImplemented
 
 def list_handler(args):
-	raise NotImplemented
+	try:
+		config_dict = load_config(args.config_file)
+	except IOError as e:
+		util.print_error('There was an error while loading config file %s'%args.config_file, e)
+		return 1
+
+	# TODO pull information from spotify and reddit for all of the listed subreddits
+	for playlist_id, playlist_settings in config_dict.items():
+		print 'Playlist ID: %s'%playlist_id
+		print '\tTop N: %i posts'%playlist_settings['top_n']
+		print '\tExpire Days: %i days'%playlist_settings['expire_days']
+		print '\tSubreddit(s): %s'%(', '.join(playlist_settings['subreddits']))
+		print
+
+	return 0
 
 def update_handler(args):
 	raise NotImplemented
