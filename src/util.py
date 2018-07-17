@@ -1,6 +1,3 @@
-def create_playlist_name(subreddit):
-	return 'r/%s\'s playlist'%subreddit
-
 def print_error(msg, exception=None):
 	if exception:
 		formatted_string = '%s: %s'%(msg, str(exception))

@@ -92,7 +92,6 @@ def update_handler(args):
 
 	return 0
 
-
 def curate_handler(args):
 	# load our auth information	
 	try:
