@@ -15,6 +15,10 @@ def load_config(config_file):
 	with open(config_file, 'r') as fp:
 		return json.load(fp)
 
+def save_config(config_dict, config_file):
+	with open(config_file, 'w') as fp:
+		json.dump(config_dict, fp)
+
 def initialize_reddit_api():
 	reddit_client_id = os.environ['REDDIT_CLIENT_ID']
 	reddit_client_secret = os.environ['REDDIT_CLIENT_SECRET']
@@ -64,7 +68,44 @@ def list_handler(args):
 	return 0
 
 def update_handler(args):
-	raise NotImplemented
+	# load our config file
+	try:
+		config = load_config(args.config_file)
+	except Exception as ex:
+		util.print_error('There was an error while reading the config file', ex)
+		return 1
+
+	# pop our dictionary
+	c = config.pop(args.playlist_id, None)
+
+	# check that we actually are using this playlist id
+	if c is None:
+		util.print_error('Config file %s does not contain configuration details for playlist id %s'%(args.config_file, args.playlist_id))
+		return 1
+
+	# create our update dictionary based on what parameters were provided
+	if not args.top_n is None:
+		c['top_n'] = args.top_n
+
+	if args.subreddits:
+		c['subreddits'] = args.subreddits
+
+	if args.expire_days:
+		c['expire_days'] = args.expire_days
+
+
+	playlist_id = args.new_playlist_id or args.playlist_id
+
+	config[playlist_id] = c
+
+	try:
+		save_config(config, args.config_file)
+	except IOError as e:
+		util.print_error('There was an error while saving the updated config file to %s'%args.config_file, e)
+		return 1
+
+	return 0
+
 
 def curate_handler(args):
 	# load our config file
@@ -137,9 +178,9 @@ def parse_args(argv):
 		help='The config file to make changes to')
 	update_subparser.add_argument('--playlist-id', type=str, required=True,
 		help='The playlist id to change. This is used as the key to lookup the item.')
-	update_subparser.add_argument('--top-n', type=int, default=25,
+	update_subparser.add_argument('--top-n', type=int,
 		help='The number of posts per query to add to the playlist. Providing this value will overwrite the current value.')
-	update_subparser.add_argument('--expire-days', type=int, default=7,
+	update_subparser.add_argument('--expire-days', type=int,
 		help='The number of days to retain added songs. Providing this value will overwrite the current value.')
 	update_subparser.add_argument('--subreddits', type=str, nargs='+',
 		help='The subreddit to pull posts from. Providing this value will overwrite the current value.')

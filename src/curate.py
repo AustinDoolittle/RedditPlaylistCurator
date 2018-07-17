@@ -41,6 +41,7 @@ class PlaylistCurator(object):
 
 	def _add_top_posts(self, subreddit, playlist_id, top_n, time_filter='day'):
 		# add top posts from today
+		# TODO prevent adding duplicates
 		songs_to_add = []
 		for post in self.reddit.subreddit(subreddit).top(time_filter, limit=None):
 			if not is_song_link(post.url):
