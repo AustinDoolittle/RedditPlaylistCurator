@@ -1,4 +1,13 @@
 {
+    "4mtsIQHyljqEcXzOYbRyzk": {
+        "expire_days": 7, 
+        "subreddits": [
+            "indierock", 
+            "punk", 
+            "folkpunk"
+        ], 
+        "top_n": 25
+    }, 
     "some_new_playlist_id": {
         "expire_days": 7, 
         "subreddits": [

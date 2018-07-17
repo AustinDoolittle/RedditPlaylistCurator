@@ -19,6 +19,19 @@ class PlaylistCurator(object):
 		self.spotify = spotify
 		self.spotify_username = spotify_username
 
+	def infer_or_create_playlist_id(self, subreddit_name):
+		# construct our playlist name
+		expected_playlist_name = util.create_playlist_name(subreddit_name)
+
+		# iterate over playlists owned by our spotify user
+		for playlist in self.spotify.user_playlists(self.spotify_username)['items']:
+			if playlist['name'] == expected_playlist_name:
+				return playlist['id']
+
+		# create the playlist
+
+		return new_playlist['id']
+
 	def _trim_expired_from_playlist(self, playlist_id, expire_days):
 		playlist = self.spotify.user_playlist(self.spotify_username, playlist_id, fields='tracks,next')
 		playlist_tracks = playlist['tracks']
@@ -41,7 +54,6 @@ class PlaylistCurator(object):
 
 	def _add_top_posts(self, subreddit, playlist_id, top_n, time_filter='day'):
 		# add top posts from today
-		# TODO prevent adding duplicates
 		songs_to_add = []
 		for post in self.reddit.subreddit(subreddit).top(time_filter, limit=None):
 			if not is_song_link(post.url):
@@ -66,6 +78,10 @@ class PlaylistCurator(object):
 
 
 	def curate_playlist(self, subreddit, playlist_id=None, top_n=25, expire_days=7, time_filter='day'):
+
+		if playlist_id is None:
+			playlist_id = self.infer_or_create_playlist_id(subreddit)
+
 		#clear out songs that are currently in the playlist that have been there longer than *expire_days*
 		self._trim_expired_from_playlist(playlist_id, expire_days)
 

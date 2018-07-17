@@ -47,8 +47,47 @@ def initialize_spotify_api():
 	spotify = spotipy.Spotify(auth=token)
 	return spotify, spotify_username
 
-def add_handler(args):
-	raise NotImplemented
+def add_handler(args):	
+	if os.path.isfile(args.config_file):
+		try:
+			config_dict = load_config(args.config_file)
+		except IOError as e:
+			util.print_error('There was an error while loading config file %s'%args.config_file, e)
+			return 1
+	else:
+		config_dict = {}
+
+	if args.playlist_id:
+		if args.playlist_id in config_dict:
+			util.print_error('Playlist id %s already exists in config file %s, cannot add duplicate playlist id'%(args.playlist_id, args.config_file))
+			return 1
+		playlist_id = args.playlist_id
+	else:
+		try:
+			spotify, spotify_username = initialize_spotify_api()
+		except util.TokenException as ex:
+			util.print_error('Spotify token retrieval failed', ex)
+			return 1
+		except Exception as ex:
+			util.print_error('There was an error initializing the spotify api wrapper', ex)
+			return 1
+
+		new_playlist = spotify.user_playlist_create(spotify_username, 
+			args.playlist_name,
+			public=True)
+		playlist_id = new_playlist['id']
+
+	config_dict[playlist_id] = {
+		'top_n': args.top_n,
+		'expire_days': args.expire_days,
+		'subreddits': args.subreddits
+	}
+
+	try:
+		save_config(config_dict, args.config_file)
+	except IOError as e:
+		util.print_error('There was an error while saving the updated config file to %s'%args.config_file, e)
+		return 1
 
 def list_handler(args):
 	try:
