@@ -1,6 +1,7 @@
 ### BEGIN PROJECT SPECIFIC
 secrets.txt
 *.cache*
+config/
 ### END PROJECT SPECIFIC
 
 ### BEGIN AUTO GENERATED CODE
