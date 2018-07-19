@@ -21,7 +21,7 @@ def load_api_auth_info():
 	}
 
 def add_handler(args):
-	# load our auth information	
+	# load our auth information
 	try:
 		api_auth = load_api_auth_info()
 	except KeyError as e:
@@ -53,7 +53,7 @@ def add_handler(args):
 	return 0
 
 def list_handler(args):
-	# load our auth information	
+	# load our auth information
 	try:
 		api_auth = load_api_auth_info()
 	except KeyError as e:
@@ -72,7 +72,7 @@ def list_handler(args):
 	return 0
 
 def update_handler(args):
-	# load our auth information	
+	# load our auth information
 	try:
 		api_auth = load_api_auth_info()
 	except KeyError as e:
@@ -98,7 +98,7 @@ def update_handler(args):
 	return 0
 
 def curate_handler(args):
-	# load our auth information	
+	# load our auth information
 	try:
 		api_auth = load_api_auth_info()
 	except KeyError as e:
@@ -136,11 +136,11 @@ def initialize_reddit_api(reddit_client_id, reddit_client_secret, reddit_user_ag
 def initialize_spotify_api(spotify_client_id, spotify_client_secret, spotify_username):
 	# this scope allows us to create and modify public playlists
 	scope='playlist-modify-public'
-	token = sp_util.prompt_for_user_token(spotify_username, 
+	token = sp_util.prompt_for_user_token(spotify_username,
 		scope,
 		client_id=spotify_client_id,
 		client_secret=spotify_client_secret,
-		redirect_uri='https://www.google.com')
+		redirect_uri='https://www.example.com/callback')
 
 	# check that we were successful
 	if not token:
@@ -230,7 +230,7 @@ class PlaylistCurator(object):
 			# 	raise ValueError('Playlist with id %s either does not exist or Spotify username %s does not have write access'%(playlist_id, self.spotify_username))
 		else:
 			# create the playlist
-			new_playlist = self.spotify.user_playlist_create(self.spotify_username, 
+			new_playlist = self.spotify.user_playlist_create(self.spotify_username,
 				playlist_name,
 				public=True)
 			playlist_id = new_playlist['id']
@@ -275,7 +275,7 @@ class PlaylistCurator(object):
 
 			# retrieve the next page
 			playlist_tracks = self.spotify.next(playlist_tracks['next'])
-		
+
 		# if we have tracks to remove, do it
 		if remove_tracks:
 			self.spotify.user_playlist_remoe_all_occurrences_of_tracks(self.spotify_username, playlist_id, remove_tracks)
