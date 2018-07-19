@@ -1,5 +1,5 @@
 ### BEGIN PROJECT SPECIFIC
-secrets.txt
+secrets.bat
 *.cache*
 config/
 ### END PROJECT SPECIFIC
