@@ -135,7 +135,7 @@ def initialize_reddit_api(reddit_client_id, reddit_client_secret, reddit_user_ag
 
 def initialize_spotify_api(spotify_client_id, spotify_client_secret, spotify_username):
 	# this scope allows us to create and modify public playlists
-	scope='playlist-modify-public'
+	scope='playlist-modify-public playlist-modify-private'
 	token = sp_util.prompt_for_user_token(spotify_username,
 		scope,
 		client_id=spotify_client_id,
@@ -241,7 +241,6 @@ class PlaylistCurator(object):
 			'subreddits': subreddits
 		}
 
-
 	def _is_valid_playlist_id(self, playlist_id):
 		raise NotImplemented()
 
@@ -274,7 +273,7 @@ class PlaylistCurator(object):
 				break
 
 			# retrieve the next page
-			playlist_tracks = self.spotify.next(playlist_tracks['next'])
+			playlist_tracks = self.spotify.next(playlist_tracks)
 
 		# if we have tracks to remove, do it
 		if remove_tracks:
@@ -282,29 +281,48 @@ class PlaylistCurator(object):
 
 	def _add_top_posts(self, subreddits, playlist_id, top_n):
 		# add top posts from today
+                playlist_response = self.spotify.user_playlist(self.spotify_username, playlist_id, fields='tracks,next')
+
+                current_tracks = []
+                while True:
+                    if 'tracks' in playlist_response:
+                        playlist_response = playlist_response['tracks']
+                    current_tracks += [t['track']['id'] for t in playlist_response['items']]
+
+                    if playlist_response['next'] is None:
+                        break
+
+                    playlist_response = self.spotify.next(playlist_response)
+
 		songs_to_add = []
-		for subreddit in subreddits:
-			for post in self.reddit.subreddit(subreddit).top('day', limit=None):
-				if not is_song_link(post.url):
-					# this isn't a youtube link, it's fair to assume this isn't a song
-					continue
+                for post in self.reddit.subreddit('+'.join(subreddits)).top('day', limit=None):
+                    if not is_song_link(post.url):
+                        # this isn't a youtube link, it's fair to assume this isn't a song
+                        continue
 
-				# sanitize our title and search spotify for a match
-				sanitized_title = sanitize_song_name(post.title)
-				search_result = self.spotify.search(q=sanitized_title, type='track')
+                    # sanitize our title and search spotify for a match
+                    sanitized_title = sanitize_song_name(post.title)
+                    if sanitized_title.isspace():
+                        continue
 
-				# check the case that no valid items were returnd
-				if len(search_result['tracks']['items']) == 0:
-					continue
+                    search_result = self.spotify.search(q=sanitized_title, type='track')
 
-				# get the first result and add it to our playlist
-				songs_to_add.append(search_result['tracks']['items'][0]['id'])
-				if len(songs_to_add) == top_n:
-					break
+                    # check the case that no valid items were returnd
+                    if len(search_result['tracks']['items']) == 0:
+                            continue
 
-			if songs_to_add:
-				self.spotify.user_playlist_add_tracks(self.spotify_username, playlist_id, songs_to_add)
+                    top_id = search_result['tracks']['items'][0]['id']
 
+                    if top_id in current_tracks:
+                        continue
+
+                    # get the first result and add it to our playlist
+                    songs_to_add.append(top_id)
+                    if len(songs_to_add) == top_n:
+                            break
+
+                if songs_to_add:
+                    self.spotify.user_playlist_add_tracks(self.spotify_username, playlist_id, songs_to_add)
 
 	def curate(self):
 		#clear out songs that are currently in the playlist that have been there longer than *expire_days*
@@ -314,9 +332,6 @@ class PlaylistCurator(object):
 
 			# add new songs
 			self._add_top_posts(config_dict['subreddits'], playlist_id, config_dict['top_n'])
-
-
-
 
 def parse_args(argv):
 	parser = argparse.ArgumentParser()
